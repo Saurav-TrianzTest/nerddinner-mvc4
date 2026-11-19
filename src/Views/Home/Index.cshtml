@@ -1,4 +1,4 @@
-﻿@{
+@{
     ViewBag.Title = "Nerd Dinner";
 }
 
@@ -17,8 +17,8 @@
     <div>
         <div id="searchBox">
             <div class="search-text">
-                Enter your location or <strong>@Html.ActionLink("View All Upcoming Dinners", "Index", "Dinners")</strong>.</div>
-            @Html.TextBox("SearchLocation")
+                Enter your location or <strong><a asp-controller="Dinners" asp-action="Index">View All Upcoming Dinners</a></strong>.</div>
+            <input type="text" id="SearchLocation" name="SearchLocation" value="" />
             <input id="search" type="submit" value="Search" />
         </div>        
     </div>
@@ -36,16 +36,10 @@
 </aside>
 
 @section Scripts {
+    <script type="text/javascript" src="~/js/geo.js"></script>
     <script type="text/javascript">
-        $().ready(function () {
-            yepnope({
-                test: Modernizr.geolocation,
-                yep: '@Url.Content("~/Scripts/geo.js")',
-                nope: '@Url.Content("~/Scripts/geo-polyfill.js")',
-                callback: function (url, result, key) {
-                    OnNavigation();
-                }
-            });
+        $(function () {
+            OnNavigation();
 
             $("#search").click(ValidateAndFindDinners);
 

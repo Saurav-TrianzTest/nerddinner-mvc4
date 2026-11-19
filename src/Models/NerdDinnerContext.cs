@@ -1,23 +1,35 @@
-﻿using System.Data.Entity;
+using Microsoft.EntityFrameworkCore;
 
 namespace NerdDinner.Models
 {
     public class NerdDinnerContext : DbContext
     {
-        // You can add custom code to this file. Changes will not be overwritten.
-        // 
-        // If you want Entity Framework to drop and regenerate your database
-        // automatically whenever you change your model schema, add the following
-        // code to the Application_Start method in your Global.asax file.
-        // Note: this will destroy and re-create your database with every model change.
-        // 
-        // System.Data.Entity.Database.SetInitializer(new System.Data.Entity.DropCreateDatabaseIfModelChanges<NerdDinner.Models.NerdDinnerContext>());
-
-        public NerdDinnerContext() : base("name=NerdDinnerContext")
+        public NerdDinnerContext(DbContextOptions<NerdDinnerContext> options) : base(options)
         {
         }
 
         public DbSet<Dinner> Dinners { get; set; }
         public DbSet<RSVP> RSVPs { get; set; }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            base.OnModelCreating(modelBuilder);
+
+            modelBuilder.Entity<Dinner>(entity =>
+            {
+                entity.HasKey(d => d.DinnerID);
+                entity.Property(d => d.Location).HasColumnType("geography");
+                entity.Ignore(d => d.LocationDetail);
+                entity.HasMany(d => d.RSVPs)
+                      .WithOne(r => r.Dinner)
+                      .HasForeignKey(r => r.DinnerID)
+                      .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<RSVP>(entity =>
+            {
+                entity.HasKey(r => r.RsvpID);
+            });
+        }
     }
 }

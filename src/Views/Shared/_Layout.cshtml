@@ -1,22 +1,29 @@
-﻿<!DOCTYPE html>
+@using Microsoft.AspNetCore.Antiforgery
+@using Microsoft.Extensions.Options
+@using NerdDinner.Options
+@using NerdDinner.Services
+@inject IOptions<GeoOptions> Geo
+@inject IAppInfo App
+@inject IAntiforgery Antiforgery
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
     <title>@ViewBag.Title</title>
     <link href="~/favicon.ico" rel="shortcut icon" type="image/x-icon" />
-    <meta name="viewport" content="width=device-width" />
-    @Styles.Render("~/Content/css")
-    @Scripts.Render("~/bundles/modernizr")
-    @Scripts.Render("~/bundles/jquery")
-    @Scripts.Render("~/bundles/knockout")
-    @Scripts.Render("~/bundles/yepnope")
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="request-verification-token" content="@Antiforgery.GetAndStoreTokens(Context).RequestToken" />
+    <link rel="stylesheet" href="~/bundles/site.css" />
+    <script src="~/bundles/jquery.js"></script>
+    <script src="~/bundles/jqueryajax.js"></script>
+    <script src="~/bundles/knockout.js"></script>
 
-    <script type="text/javascript" src="http://ecn.dev.virtualearth.net/mapcontrol/mapcontrol.ashx?v=7.0"></script>
-    <script type="text/javascript" src="~/Scripts/NerdDinner.js"></script>
+    <script type="text/javascript" src="https://www.bing.com/api/maps/mapcontrol"></script>
+    <script type="text/javascript" src="~/bundles/nerddinner.js"></script>
 
     <script type="text/javascript">
-        NerdDinner.ipInfoDbKey = '@System.Configuration.ConfigurationManager.AppSettings["ipInfoDbKey"]';
-        NerdDinner.BingMapsKey = '@System.Configuration.ConfigurationManager.AppSettings["BingMapsKey"]';
+        NerdDinner.ipInfoDbKey = @Json.Serialize(Geo.Value.IpInfoDbKey);
+        NerdDinner.BingMapsKey = @Json.Serialize(Geo.Value.BingMapsKey);
     </script>
 </head>
 <body>
@@ -25,18 +32,18 @@
             <div class="float-left">
                 <p class="site-title">
                     <a href="~/" title="Nerd Dinner">
-                        <img src="~/Images/Logo.png" style="border: none;" /></a>
+                        <img src="~/images/logo.png" alt="Nerd Dinner" style="border: none;" /></a>
                 </p>
             </div>
             <div class="float-right">
                 <section id="login">
-                    @Html.Partial("_LoginPartial")
+                    <partial name="_LoginPartial" />
                 </section>
                 <nav>
                     <ul id="menu">
-                        <li>@Html.ActionLink("Find Dinner", "Index", "Home")</li>
-                        <li>@Html.ActionLink("Host Dinner", "Create", "Dinners")</li>
-                        <li>@Html.ActionLink("About", "About", "Home")</li>
+                        <li><a asp-controller="Home" asp-action="Index">Find Dinner</a></li>
+                        <li><a asp-controller="Dinners" asp-action="Create">Host Dinner</a></li>
+                        <li><a asp-controller="Home" asp-action="About">About</a></li>
                     </ul>
                 </nav>
             </div>
@@ -56,11 +63,11 @@
                 Source Code at <a href="http://nerddinner.codeplex.com">http://nerddinner.codeplex.com</a>.
             Free Sample Book Chapter and code walkthrough at <a href="http://tinyurl.com/aspnetmvc">http://tinyurl.com/aspnetmvc</a>.
                 <br />
-                Version: @HttpContext.Current.Application["Version"]
+                Version: @App.Version
             </div>
         </div>
     </footer>
 
-    @RenderSection("scripts", required: false)
+    @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

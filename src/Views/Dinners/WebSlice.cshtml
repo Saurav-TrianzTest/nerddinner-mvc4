@@ -1,4 +1,4 @@
-﻿@model IEnumerable<NerdDinner.Models.Dinner>              
+@model IEnumerable<NerdDinner.Models.Dinner>
 
 @{
     Layout = null;
@@ -19,7 +19,7 @@
                     @foreach (var dinner in Model)
                     { 
                     <li style="list-style-type: none;">
-                        @Html.ActionLink(dinner.Title, "Details", new { id = dinner.DinnerID })
+                        <a asp-action="Details" asp-route-id="@dinner.DinnerID">@dinner.Title</a>
                         on <strong>
                             @dinner.EventDate.ToString("yyyy-MMM-dd")
                             @dinner.EventDate.ToString("HH:mm tt")</strong> at

@@ -1,11 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using System.Data.Spatial;
-using System.Linq;
-using System.Web;
-using System.Web.Mvc;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
+using NetTopologySuite.Geometries;
 
 namespace NerdDinner.Models
 {
@@ -44,10 +41,15 @@ namespace NerdDinner.Models
         [UIHint("CountryDropDown")]
         public string Country { get; set; }
 
+        /// <summary>
+        /// Geographic location (SRID 4326). X is the longitude and Y is the latitude.
+        /// </summary>
         [Display(Name = "Location")]
-        public DbGeography Location { get; set; }
+        [Column(TypeName = "geography")]
+        [ValidateNever]
+        public Point Location { get; set; }
 
-        public virtual ICollection<RSVP> RSVPs { get; set; }
+        public virtual ICollection<RSVP> RSVPs { get; set; } = new List<RSVP>();
 
         public bool IsHostedBy(string userName)
         {
@@ -56,31 +58,27 @@ namespace NerdDinner.Models
 
         public bool IsUserRegistered(string userName)
         {
-            return RSVPs.Any(r => r.AttendeeName == userName);
+            return RSVPs != null && RSVPs.Any(r => r.AttendeeName == userName);
         }
 
         [UIHint("LocationDetail")]
         [NotMapped]
+        [Microsoft.AspNetCore.Mvc.ModelBinding.BindNever]
+        [ValidateNever]
         public LocationDetail LocationDetail
         {
             get
             {
                 return new LocationDetail() { Location = this.Location, Id = this.DinnerID, Title = this.Title, Address = this.Address };
             }
-            set
-            {
-                this.Location = value.Location;
-                this.DinnerID = value.Id;
-                this.Title = value.Title;
-                this.Address = value.Address;
-            }
         }
     }
+
     public class LocationDetail
     {
-        public DbGeography Location;
-        public int Id;
-        public string Title;
-        public string Address;
+        public Point Location { get; set; }
+        public int Id { get; set; }
+        public string Title { get; set; }
+        public string Address { get; set; }
     }
 }

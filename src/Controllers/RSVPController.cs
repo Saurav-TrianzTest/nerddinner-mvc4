@@ -1,61 +1,78 @@
-﻿using System;
-using System.Globalization;
-using System.Linq;
-using System.Web.Mvc;
-using NerdDinner.Helpers;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using NerdDinner.Models;
 
 namespace NerdDinner.Controllers
 {
     public class RSVPController : Controller
     {
-        private NerdDinnerContext db = new NerdDinnerContext();
+        private readonly NerdDinnerContext _db;
+        private readonly ILogger<RSVPController> _logger;
 
-        //
-        // HTTP: /RSVP/Register/1
-        [Authorize]
-        public ActionResult Register(int id)
+        public RSVPController(NerdDinnerContext db, ILogger<RSVPController> logger)
         {
-            RegisterForDinner(id);
-            return RedirectToAction("Details", "Dinners", new { id = id });
+            _db = db;
+            _logger = logger;
         }
 
         //
-        // AJAX: /Dinners/RegisterAjax/1
-        [Authorize, HttpPost]
-        public ActionResult RegisterAjax(int id)
+        // HTTP POST: /RSVP/Register/1  (state-changing, so POST + antiforgery)
+        [Authorize, HttpPost, ValidateAntiForgeryToken]
+        public async Task<IActionResult> Register(int id)
         {
-            RegisterForDinner(id);
+            if (!await RegisterForDinnerAsync(id))
+            {
+                return NotFound();
+            }
+            return RedirectToAction("Details", "Dinners", new { id });
+        }
+
+        //
+        // AJAX: /RSVP/RegisterAjax/1
+        [Authorize, HttpPost, ValidateAntiForgeryToken]
+        public async Task<IActionResult> RegisterAjax(int id)
+        {
+            if (!await RegisterForDinnerAsync(id))
+            {
+                return NotFound();
+            }
             return Content("Thanks - we'll see you there!");
         }
 
-        private void RegisterForDinner(int id)
+        private async Task<bool> RegisterForDinnerAsync(int id)
         {
-            Dinner dinner = db.Dinners.Find(id);
+            Dinner dinner = await _db.Dinners.Include(d => d.RSVPs).FirstOrDefaultAsync(d => d.DinnerID == id);
+            if (dinner == null)
+            {
+                return false;
+            }
 
             if (!dinner.IsUserRegistered(User.Identity.Name))
             {
-                RSVP rsvp = new RSVP();
-                rsvp.AttendeeName = User.Identity.Name;
-
-                dinner.RSVPs.Add(rsvp);
-                db.SaveChanges();
+                dinner.RSVPs.Add(new RSVP { AttendeeName = User.Identity.Name });
+                await _db.SaveChangesAsync();
+                _logger.LogInformation("{User} registered for dinner {DinnerId}.", User.Identity.Name, id);
             }
+            return true;
         }
 
         //
         // AJAX: /RSVP/CancelAjax/1
-
-        [Authorize, HttpPost]
-        public ActionResult CancelAjax(int id)
+        [Authorize, HttpPost, ValidateAntiForgeryToken]
+        public async Task<IActionResult> CancelAjax(int id)
         {
-            Dinner dinner = db.Dinners.Find(id);
+            Dinner dinner = await _db.Dinners.Include(d => d.RSVPs).FirstOrDefaultAsync(d => d.DinnerID == id);
+            if (dinner == null)
+            {
+                return NotFound();
+            }
 
-            RSVP rsvp = dinner.RSVPs.SingleOrDefault(r => this.User.Identity.Name ==  r.AttendeeName);
+            RSVP rsvp = dinner.RSVPs.SingleOrDefault(r => User.Identity.Name == r.AttendeeName);
             if (rsvp != null)
             {
-                db.RSVPs.Remove(rsvp);
-                db.SaveChanges();
+                _db.RSVPs.Remove(rsvp);
+                await _db.SaveChangesAsync();
             }
 
             return Content("Sorry you can't make it!");

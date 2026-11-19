@@ -1,0 +1,24 @@
+@model IList<Microsoft.AspNetCore.Authentication.AuthenticationScheme>
+
+@if (Model.Count == 0)
+{
+    <div class="message-info">
+        <p>There are no external authentication services configured. See the
+        <code>Authentication</code> section of <code>appsettings.json</code> (use user-secrets for the keys)
+        for details on setting up this application to support logging in via external services.</p>
+    </div>
+}
+else
+{
+    <form asp-controller="Account" asp-action="ExternalLogin" asp-route-returnUrl="@ViewBag.ReturnUrl" method="post">
+        <fieldset id="socialLoginList">
+            <legend>Log in using another service</legend>
+            <p>
+            @foreach (var p in Model)
+            {
+                <button type="submit" name="provider" value="@p.Name" title="Log in using your @p.DisplayName account">@p.DisplayName</button>
+            }
+            </p>
+        </fieldset>
+    </form>
+}

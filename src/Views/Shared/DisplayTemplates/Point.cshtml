@@ -1,0 +1,7 @@
+@using System.Globalization
+@model NetTopologySuite.Geometries.Point
+@if (Model != null) {
+  @Html.Hidden("", string.Create(CultureInfo.InvariantCulture, $"{Model.Y},{Model.X}"), new { @class = "display-for-point", disabled = "disabled" })
+} else {
+  @Html.Hidden("", "n/a", new { disabled = "disabled" })
+}

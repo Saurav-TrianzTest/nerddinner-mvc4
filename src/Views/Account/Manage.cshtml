@@ -1,4 +1,4 @@
-﻿@model NerdDinner.Models.LocalPasswordModel
+@model NerdDinner.Models.LocalPasswordModel
 @{
     ViewBag.Title = "Manage Account";
 }
@@ -13,20 +13,20 @@
 
 @if (ViewBag.HasLocalPassword)
 {
-    @Html.Partial("_ChangePasswordPartial")
+    <partial name="_ChangePasswordPartial" model="Model" />
 }
 else
 { 
-    @Html.Partial("_SetPasswordPartial")
+    <partial name="_SetPasswordPartial" model="Model" />
 }
 
 <section id="externalLogins">
-    @Html.Action("RemoveExternalLogins")
+    @await Component.InvokeAsync("RemoveExternalLogins")
 
     <h3>Add an external login</h3>
-    @Html.Action("ExternalLoginsList", new { ReturnUrl = ViewBag.ReturnUrl })
+    @await Component.InvokeAsync("ExternalLoginsList", new { returnUrl = (string)ViewBag.ReturnUrl })
 </section>
 
 @section Scripts {
-    @Scripts.Render("~/bundles/jqueryval")
+    <partial name="_ValidationScriptsPartial" />
 }

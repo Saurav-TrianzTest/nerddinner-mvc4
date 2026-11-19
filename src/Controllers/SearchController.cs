@@ -1,13 +1,9 @@
-﻿using NerdDinner.Models;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using NerdDinner.Models;
+using NerdDinner.ModelBinders;
 using NerdDinner.Services;
-using System;
-using System.Collections.Generic;
-using System.Data.Spatial;
-using System.Globalization;
-using System.Linq;
-using System.Net;
-using System.Net.Http;
-using System.Web.Http;
+using NetTopologySuite.Geometries;
 
 namespace NerdDinner.Controllers
 {
@@ -23,90 +19,105 @@ namespace NerdDinner.Controllers
         public string Url { get; set; }
     }
 
-    public class SearchController : ApiController
+    /// <summary>
+    /// Preserves the legacy Web API contract consumed by NerdDinner.js:
+    ///   GET  api/Search?latitude=1.0&amp;longitude=1.0
+    ///   GET  api/Search?location=Seattle
+    ///   POST api/Search?limit=10
+    /// </summary>
+    [ApiController]
+    [Route("api/[controller]")]
+    public class SearchController : ControllerBase
     {
-        private NerdDinnerContext db = new NerdDinnerContext();
+        private const double SearchRadiusMeters = 2000;
 
-        // GET api/Search?latitude=1.0&longitude=1.0
-        [HttpGet]
-        public IEnumerable<JsonDinner> SearchByLocation(double latitude, double longitude)
+        private readonly NerdDinnerContext _db;
+        private readonly IGeolocationService _geolocation;
+        private readonly ILogger<SearchController> _logger;
+
+        public SearchController(NerdDinnerContext db, IGeolocationService geolocation, ILogger<SearchController> logger)
         {
-            return FindByLocation(latitude, longitude);
+            _db = db;
+            _geolocation = geolocation;
+            _logger = logger;
         }
 
+        // GET api/Search?latitude=1.0&longitude=1.0
         // GET api/Search?location=30901
         // GET api/Search?location=Seattle
         [HttpGet]
-        public IEnumerable<JsonDinner> SearchByPlaceNameOrZip(string location)
+        public async Task<ActionResult<IEnumerable<JsonDinner>>> Get(
+            [FromQuery] double? latitude, [FromQuery] double? longitude, [FromQuery] string location,
+            CancellationToken cancellationToken)
         {
-            if (String.IsNullOrEmpty(location)) return null;
-            LatLong foundlocation = GeolocationService.PlaceOrZipToLatLong(location);
-            if (foundlocation != null)
+            if (latitude.HasValue && longitude.HasValue)
             {
-                return FindByLocation(foundlocation.Lat, foundlocation.Long).
-                                OrderByDescending(p => p.EventDate);
+                return Ok(await FindByLocationAsync(latitude.Value, longitude.Value, cancellationToken));
             }
-            return null;
+
+            if (string.IsNullOrWhiteSpace(location))
+            {
+                return Ok(Array.Empty<JsonDinner>());
+            }
+
+            LatLong foundLocation = await _geolocation.PlaceOrZipToLatLongAsync(location, cancellationToken);
+            if (foundLocation == null)
+            {
+                return Ok(Array.Empty<JsonDinner>());
+            }
+
+            var results = await FindByLocationAsync(foundLocation.Lat, foundLocation.Long, cancellationToken);
+            return Ok(results.OrderByDescending(p => p.EventDate).ToList());
         }
 
         // POST api/Search?limit=10
+        // The endpoint is read-only, so it is excluded from antiforgery validation.
         [HttpPost]
-        public IEnumerable<JsonDinner> GetMostPopularDinners(int limit)
+        [IgnoreAntiforgeryToken]
+        public async Task<ActionResult<IEnumerable<JsonDinner>>> GetMostPopularDinners([FromQuery] int limit, CancellationToken cancellationToken)
         {
-            var mostPopularDinners = from dinner in db.Dinners.Include("RSVPs")
-                                     where dinner.EventDate >= DateTime.Now
-                                     orderby dinner.RSVPs.Count descending
-                                     select dinner;
+            limit = Math.Clamp(limit, 1, 100);
 
-            return mostPopularDinners.Take(limit).AsEnumerable().Select(item => JsonDinnerFromDinner(item));
+            var now = DateTime.Now;
+            var mostPopularDinners = await _db.Dinners
+                .AsNoTracking()
+                .Include(d => d.RSVPs)
+                .Where(d => d.EventDate >= now)
+                .OrderByDescending(d => d.RSVPs.Count)
+                .Take(limit)
+                .ToListAsync(cancellationToken);
+
+            return Ok(mostPopularDinners.Select(JsonDinnerFromDinner).ToList());
         }
 
-        protected IQueryable<JsonDinner> FindByLocation(double latitude, double longitude)
+        private async Task<List<JsonDinner>> FindByLocationAsync(double latitude, double longitude, CancellationToken cancellationToken)
         {
-            var sourcePoint = DbGeography.FromText(string.Format("POINT ({0} {1})", longitude, latitude));
+            //4326 format puts LONGITUDE first then LATITUDE
+            Point sourcePoint = PointModelBinder.GeometryFactory.CreatePoint(new Coordinate(longitude, latitude));
 
-            var results =
-                db.Dinners
-                .Where(loc => loc.Location.Distance(sourcePoint) < 2000)
-                .OrderBy(loc => loc.Location.Distance(sourcePoint));
+            var results = await _db.Dinners
+                .AsNoTracking()
+                .Include(d => d.RSVPs)
+                .Where(d => d.Location != null && d.Location.Distance(sourcePoint) < SearchRadiusMeters)
+                .OrderBy(d => d.Location.Distance(sourcePoint))
+                .ToListAsync(cancellationToken);
 
-            foreach (Dinner dinner in results)
-            {
-                dinner.RSVPs = new List<RSVP>();
-
-                var rsvps = db.RSVPs.Where(x => x.DinnerID == dinner.DinnerID);
-
-                foreach (RSVP rsvp in rsvps)
-                {
-                    dinner.RSVPs.Add(rsvp);
-                }
-            }
-
-            var jsonDinners = results.AsEnumerable()
-                    .Select(item => JsonDinnerFromDinner(item));
-
-            return jsonDinners.AsQueryable<JsonDinner>();
+            return results.Select(JsonDinnerFromDinner).ToList();
         }
 
-        private JsonDinner JsonDinnerFromDinner(Dinner dinner)
+        private static JsonDinner JsonDinnerFromDinner(Dinner dinner)
         {
             return new JsonDinner
             {
                 DinnerID = dinner.DinnerID,
                 EventDate = dinner.EventDate,
-                Latitude = dinner.Location.Latitude.Value,
-                Longitude = dinner.Location.Longitude.Value,
+                Latitude = dinner.Location?.Y ?? 0,
+                Longitude = dinner.Location?.X ?? 0,
                 Title = dinner.Title,
                 Description = dinner.Description,
-                RSVPCount = dinner.RSVPs.Count(),
+                RSVPCount = dinner.RSVPs.Count,
                 Url = dinner.DinnerID.ToString()
             };
-        }
-
-        protected override void Dispose(bool disposing)
-        {
-            db.Dispose();
-            base.Dispose(disposing);
         }
     }
 }

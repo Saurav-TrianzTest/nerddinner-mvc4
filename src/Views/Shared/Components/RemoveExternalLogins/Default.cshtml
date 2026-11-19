@@ -1,0 +1,32 @@
+@model IList<NerdDinner.Models.ExternalLogin>
+
+@if (Model.Count > 0)
+{
+    <h3>Registered external logins</h3>
+    <table>
+        <tbody>
+        @foreach (NerdDinner.Models.ExternalLogin externalLogin in Model)
+        {
+            <tr>
+                <td>@externalLogin.ProviderDisplayName</td>
+                <td>
+                    @if (ViewBag.ShowRemoveButton)
+                    {
+                        <form asp-controller="Account" asp-action="Disassociate" method="post">
+                            <div>
+                                <input type="hidden" name="provider" value="@externalLogin.Provider" />
+                                <input type="hidden" name="providerUserId" value="@externalLogin.ProviderUserId" />
+                                <input type="submit" value="Remove" title="Remove this @externalLogin.ProviderDisplayName credential from your account" />
+                            </div>
+                        </form>
+                    }
+                    else
+                    {
+                        @: &nbsp;
+                    }
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}

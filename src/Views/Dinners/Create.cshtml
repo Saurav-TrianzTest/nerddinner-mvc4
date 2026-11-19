@@ -1,4 +1,4 @@
-﻿@model NerdDinner.Models.Dinner
+@model NerdDinner.Models.Dinner
 
 @{
     ViewBag.Title = "Host a Nerd Dinner";
@@ -6,69 +6,66 @@
 
 <h2>Host a Dinner</h2>
 
-@using (Html.BeginForm())
-{
-    @Html.AntiForgeryToken() 
-    @Html.ValidationSummary(true)
+<form asp-action="Create" method="post">
+    <div asp-validation-summary="ModelOnly"></div>
 
     <fieldset>
         <legend></legend>
 
         <div id="dinnerDiv" style="float: right;">
             <div class="editor-label">
-                @Html.LabelFor(model => model.Title)
+                <label asp-for="Title"></label>
             </div>
             <div class="editor-field">
                 @Html.EditorFor(model => model.Title)
-                @Html.ValidationMessageFor(model => model.Title)
+                <span asp-validation-for="Title"></span>
             </div>
 
             <div class="editor-label">
-                @Html.LabelFor(model => model.EventDate)
+                <label asp-for="EventDate"></label>
             </div>
             <div class="editor-field">
                 @Html.EditorFor(model => model.EventDate)
-                @Html.ValidationMessageFor(model => model.EventDate)
+                <span asp-validation-for="EventDate"></span>
             </div>
 
             <div class="editor-label">
-                @Html.LabelFor(model => model.Description)
+                <label asp-for="Description"></label>
             </div>
             <div class="editor-field">
                 @Html.EditorFor(model => model.Description)
-                @Html.ValidationMessageFor(model => model.Description)
+                <span asp-validation-for="Description"></span>
             </div>
 
             <div class="editor-label">
-                @Html.LabelFor(model => model.HostedBy)
+                <label asp-for="HostedBy"></label>
             </div>
             <div class="editor-field">
-                @Html.EditorFor(model => model.HostedBy)
-                @Html.ValidationMessageFor(model => model.HostedBy)
+                @Html.DisplayFor(model => model.HostedBy)
             </div>
 
             <div class="editor-label">
-                @Html.LabelFor(model => model.ContactPhone)
+                <label asp-for="ContactPhone"></label>
             </div>
             <div class="editor-field">
                 @Html.EditorFor(model => model.ContactPhone)
-                @Html.ValidationMessageFor(model => model.ContactPhone)
+                <span asp-validation-for="ContactPhone"></span>
             </div>
 
             <div class="editor-label">
-                @Html.LabelFor(model => model.Address)
+                <label asp-for="Address"></label>
             </div>
             <div class="editor-field">
                 @Html.EditorFor(model => model.Address)
-                @Html.ValidationMessageFor(model => model.Address)
+                <span asp-validation-for="Address"></span>
             </div>
 
             <div class="editor-label">
-                @Html.LabelFor(model => model.Country)
+                <label asp-for="Country"></label>
             </div>
             <div class="editor-field">
                 @Html.EditorFor(model => model.Country)
-                @Html.ValidationMessageFor(model => model.Country)
+                <span asp-validation-for="Country"></span>
             </div>
         </div>
         <div id="mapDiv" style="float: left;">
@@ -79,55 +76,25 @@
             <input type="submit" value="Create" />
         </p>
     </fieldset>
-}
+</form>
 
 <div>
-    @Html.ActionLink("Back to List", "Index")
+    <a asp-action="Index">Back to List</a>
 </div>
 
 @section Scripts {
-    @Scripts.Render("~/bundles/jqueryval")
+    <partial name="_ValidationScriptsPartial" />
 
     <script type="text/javascript">
-        //<![CDATA[
         $(document).ready(function () {
-            onMapLoaded();
-        });
-
-        function onMapLoaded() {
             $("#Address").blur(function (evt) {
-                //If it's time to look for an address, 
-                // clear out the Lat and Lon
-                $("#Latitude").val("0");
-                $("#Longitude").val("0");
+                // When it's time to look for an address, clear out the previous location
+                $("#Location").val("");
                 var address = jQuery.trim($("#Address").val());
                 if (address.length < 1)
                     return;
                 NerdDinner.FindAddressOnMap(address);
             });
-
-            var latitude = 0;
-            var longitude = 0;
-
-            @if(Model.Location != null){
-                <text>
-                latitude = @Model.Location.Latitude;
-                longitude = @Model.Location.Longitude;
-                </text>
-            }
-                
-            if ((latitude == 0) || (longitude == 0))
-                NerdDinner.LoadMap();
-            else
-                NerdDinner.LoadMap(latitude, longitude, mapLoaded);
-        }
-
-        function mapLoaded() {
-            NerdDinner.LoadPin(NerdDinner._map.GetCenter(), '@Model.Description', true);
-            NerdDinner._map.SetZoomLevel(14);
-        } 
-
-        //]]>
+        });
     </script>
-
 }

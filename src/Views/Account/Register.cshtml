@@ -1,4 +1,4 @@
-﻿@model NerdDinner.Models.RegisterModel
+@model NerdDinner.Models.RegisterModel
 @{
     ViewBag.Title = "Register";
 }
@@ -8,30 +8,29 @@
     <h2>Create a new account.</h2>
 </hgroup>
 
-@using (Html.BeginForm()) {
-    @Html.AntiForgeryToken()
-    @Html.ValidationSummary()
+<form asp-action="Register" method="post">
+    <div asp-validation-summary="All"></div>
 
     <fieldset>
         <legend>Registration Form</legend>
         <ol>
             <li>
-                @Html.LabelFor(m => m.UserName)
-                @Html.TextBoxFor(m => m.UserName)
+                <label asp-for="UserName"></label>
+                <input asp-for="UserName" />
             </li>
             <li>
-                @Html.LabelFor(m => m.Password)
-                @Html.PasswordFor(m => m.Password)
+                <label asp-for="Password"></label>
+                <input asp-for="Password" />
             </li>
             <li>
-                @Html.LabelFor(m => m.ConfirmPassword)
-                @Html.PasswordFor(m => m.ConfirmPassword)
+                <label asp-for="ConfirmPassword"></label>
+                <input asp-for="ConfirmPassword" />
             </li>
         </ol>
         <input type="submit" value="Register" />
     </fieldset>
-}
+</form>
 
 @section Scripts {
-    @Scripts.Render("~/bundles/jqueryval")
+    <partial name="_ValidationScriptsPartial" />
 }

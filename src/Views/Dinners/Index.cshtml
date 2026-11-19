@@ -1,4 +1,4 @@
-﻿@model PagedList.IPagedList<NerdDinner.Models.Dinner>
+@model X.PagedList.IPagedList<NerdDinner.Models.Dinner>
 @{
     ViewBag.Title = "Upcoming Nerd Dinners";
 }
@@ -10,7 +10,7 @@
         @foreach (var dinner in Model)
         {        
             <li>
-                @Html.ActionLink(dinner.Title, "Details", new { id = dinner.DinnerID })
+                <a asp-action="Details" asp-route-id="@dinner.DinnerID">@dinner.Title</a>
                 on <strong>@dinner.EventDate.ToString("yyyy-MMM-dd")
                     @dinner.EventDate.ToString("HH:mm tt")</strong> at
                 @(dinner.Address + " " + dinner.Country)
@@ -18,4 +18,4 @@
         }
     </ul>
 </div>
-@Html.Partial("DinnerPagination")
+<partial name="DinnerPagination" model="Model" />

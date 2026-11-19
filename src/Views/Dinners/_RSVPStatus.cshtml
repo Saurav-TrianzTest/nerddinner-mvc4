@@ -1,4 +1,4 @@
-﻿@model NerdDinner.Models.Dinner
+@model NerdDinner.Models.Dinner
 <script type="text/javascript">
 
 	function AnimateRSVPMessage() {
@@ -7,9 +7,9 @@
 
 </script>
 <div id="rsvpmsg">
-	@if (Request.IsAuthenticated)
+	@if (User.Identity != null && User.Identity.IsAuthenticated)
 	{
-		if (Model.IsHostedBy(Context.User.Identity.Name))
+		if (Model.IsHostedBy(User.Identity.Name))
 		{ 
 
 		<p>
@@ -17,32 +17,26 @@
 		</p>
 
 		}
-		else if (Model.IsUserRegistered(Context.User.Identity.Name))
+		else if (Model.IsUserRegistered(User.Identity.Name))
 		{
 	
 		<p>
 			You are registered for this event!
 		</p>
 	
-		@Ajax.ActionLink("Cancel your RSVP",
-							 "CancelAjax", "RSVP",
-							 new { id = Model.DinnerID },
-							 new AjaxOptions { HttpMethod = "POST", UpdateTargetId = "rsvpmsg", OnSuccess = "AnimateRSVPMessage" })    
+		<a asp-controller="RSVP" asp-action="CancelAjax" asp-route-id="@Model.DinnerID"
+		   data-ajax="true" data-ajax-method="POST" data-ajax-update="#rsvpmsg" data-ajax-success="AnimateRSVPMessage">Cancel your RSVP</a>
 	
 		}
 		else
 		{ 
 
-		@Ajax.ActionLink("RSVP for this event",
-							 "RegisterAjax", "RSVP",
-							 new { id = Model.DinnerID },
-							 new AjaxOptions { HttpMethod = "POST", UpdateTargetId = "rsvpmsg", OnSuccess = "AnimateRSVPMessage" })
+		<a asp-controller="RSVP" asp-action="RegisterAjax" asp-route-id="@Model.DinnerID"
+		   data-ajax="true" data-ajax-method="POST" data-ajax-update="#rsvpmsg" data-ajax-success="AnimateRSVPMessage">RSVP for this event</a>
 		}
 	}
 	else
 	{
-		@Html.ActionLink("RSVP for this event",
-							 "Register", "RSVP",
-							 new { id = Model.DinnerID }, null)
+		<a asp-controller="Account" asp-action="Login" asp-route-returnUrl="@Url.Action("Details", "Dinners", new { id = Model.DinnerID })">RSVP for this event</a>
 	}
 </div>

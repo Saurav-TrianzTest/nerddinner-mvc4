@@ -1,23 +1,25 @@
-﻿<div class="pagination">
+@model X.PagedList.IPagedList
+
+<div class="pagination">
     @if (!Model.IsFirstPage)
     {
         <span class="page-link">
-            @Html.ActionLink("<<", "Index", new { page = 1 })</span>
+            <a asp-action="Index" asp-route-page="1">&lt;&lt;</a></span>
     }
     @if (Model.HasPreviousPage)
     {
         <span class="page-link">
-            @Html.ActionLink("< Prev", "Index", new { page = Model.PageNumber - 1 })</span>
+            <a asp-action="Index" asp-route-page="@(Model.PageNumber - 1)">&lt; Prev</a></span>
     }
     @if (Model.HasNextPage)
     {
         <span class="page-link">
-            @Html.ActionLink("Next >", "Index", new { page = Model.PageNumber + 1 })</span>
+            <a asp-action="Index" asp-route-page="@(Model.PageNumber + 1)">Next &gt;</a></span>
     }
     @if (!Model.IsLastPage)
     {
         <span class="page-link">
-            @Html.ActionLink(">>", "Index", new { page = Model.PageCount })</span>
+            <a asp-action="Index" asp-route-page="@Model.PageCount">&gt;&gt;</a></span>
     }
     <div class="info">
         <i>Page @(Model.PageCount < Model.PageNumber ? 0 : Model.PageNumber) of @Model.PageCount</i>

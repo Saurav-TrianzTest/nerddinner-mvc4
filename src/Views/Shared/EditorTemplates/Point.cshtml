@@ -1,0 +1,7 @@
+@using System.Globalization
+@model NetTopologySuite.Geometries.Point
+@if (Model != null) {
+  @Html.Hidden("", string.Create(CultureInfo.InvariantCulture, $"{Model.Y},{Model.X}"), new { @class = "editor-for-point" })
+} else {
+  @Html.Hidden("", "", new { @class = "editor-for-point" })
+}

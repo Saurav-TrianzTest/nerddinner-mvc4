@@ -1,72 +1,114 @@
-﻿using System;
-using System.Linq;
-using System.Runtime.Caching;
+using System.Globalization;
 using System.Xml.Linq;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Options;
 using NerdDinner.Helpers;
+using NerdDinner.Options;
 
 namespace NerdDinner.Services
 {
-    public class GeolocationService
+    public interface IGeolocationService
     {
-        public static LatLong PlaceOrZipToLatLong(string placeOrZip)
+        Task<LatLong> PlaceOrZipToLatLongAsync(string placeOrZip, CancellationToken cancellationToken = default);
+        Task<LocationInfo> HostIpToPlaceNameAsync(string ip, CancellationToken cancellationToken = default);
+    }
+
+    public class GeolocationService : IGeolocationService
+    {
+        private readonly HttpClient _httpClient;
+        private readonly IMemoryCache _cache;
+        private readonly GeoOptions _options;
+        private readonly ILogger<GeolocationService> _logger;
+
+        public GeolocationService(HttpClient httpClient, IMemoryCache cache, IOptions<GeoOptions> options, ILogger<GeolocationService> logger)
         {
-            ObjectCache cache = MemoryCache.Default;
-
-            string url = "http://ws.geonames.org/postalCodeSearch?{0}={1}&maxRows=1&style=SHORT";
-            url = String.Format(url, placeOrZip.IsNumeric() ? "postalcode" : "placename", placeOrZip);
-
-            var result = cache[placeOrZip] as XDocument;
-            if (result == null)
-            {
-                result = XDocument.Load(url);
-                cache.Add(placeOrZip, result,
-                    new CacheItemPolicy() { SlidingExpiration = TimeSpan.FromDays(1) });
-            }
-
-            if (result.Descendants("code").Any())
-            {
-                var ll = (from x in result.Descendants("code")
-                          select new LatLong
-                          {
-                              Lat = (float)x.Element("lat"),
-                              Long = (float)x.Element("lng")
-                          })
-                           .First();
-                return ll;
-            }
-            return null;
+            _httpClient = httpClient;
+            _cache = cache;
+            _options = options.Value;
+            _logger = logger;
         }
 
-        public static LocationInfo HostIpToPlaceName(string ip)
+        public async Task<LatLong> PlaceOrZipToLatLongAsync(string placeOrZip, CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(placeOrZip))
+            {
+                return null;
+            }
+
+            placeOrZip = placeOrZip.Trim();
+            string cacheKey = "geonames:" + placeOrZip.ToLowerInvariant();
+
+            if (!_cache.TryGetValue(cacheKey, out XDocument result))
+            {
+                string url = string.Format(CultureInfo.InvariantCulture,
+                    "https://secure.geonames.org/postalCodeSearch?{0}={1}&maxRows=1&style=SHORT&username={2}",
+                    placeOrZip.IsNumeric() ? "postalcode" : "placename",
+                    Uri.EscapeDataString(placeOrZip),
+                    Uri.EscapeDataString(_options.GeoNamesUserName ?? string.Empty));
+
+                try
+                {
+                    await using var stream = await _httpClient.GetStreamAsync(url, cancellationToken);
+                    result = await XDocument.LoadAsync(stream, LoadOptions.None, cancellationToken);
+                }
+                catch (Exception ex) when (ex is HttpRequestException or System.Xml.XmlException)
+                {
+                    _logger.LogWarning(ex, "Geocoding lookup failed for '{Location}'.", placeOrZip);
+                    return null;
+                }
+
+                _cache.Set(cacheKey, result, new MemoryCacheEntryOptions { SlidingExpiration = TimeSpan.FromDays(1) });
+            }
+
+            var code = result.Descendants("code").FirstOrDefault();
+            if (code == null)
+            {
+                return null;
+            }
+
+            return new LatLong
+            {
+                Lat = (float)code.Element("lat"),
+                Long = (float)code.Element("lng")
+            };
+        }
+
+        public async Task<LocationInfo> HostIpToPlaceNameAsync(string ip, CancellationToken cancellationToken = default)
         {
             if (ip == "127.0.0.1")
             {
                 ip = "71.117.141.83";
-                //return string.Empty;
             }
 
-            string apiKey = System.Configuration.ConfigurationManager.AppSettings["ipInfoDbKey"];
-            string url = "http://api.ipinfodb.com/v3/ip-city/?ip={0}&key=" + apiKey;
-            //string url = "http://ipinfodb.com/ip_query.php?ip={0}&timezone=false";
-            url = String.Format(url, ip);
+            string url = string.Format(CultureInfo.InvariantCulture,
+                "https://api.ipinfodb.com/v3/ip-city/?ip={0}&key={1}&format=xml",
+                Uri.EscapeDataString(ip ?? string.Empty),
+                Uri.EscapeDataString(_options.IpInfoDbKey ?? string.Empty));
 
-            var result = XDocument.Load(url);
+            try
+            {
+                await using var stream = await _httpClient.GetStreamAsync(url, cancellationToken);
+                var result = await XDocument.LoadAsync(stream, LoadOptions.None, cancellationToken);
 
-            var location = (from x in result.Descendants("Response")
-                            select new LocationInfo
+                return (from x in result.Descendants("Response")
+                        select new LocationInfo
+                        {
+                            City = (string)x.Element("cityName"),
+                            RegionName = (string)x.Element("regionName"),
+                            Country = (string)x.Element("countryName"),
+                            ZipPostalCode = (string)x.Element("zipCode"),
+                            Position = new LatLong
                             {
-                                City = (string)x.Element("City"),
-                                RegionName = (string)x.Element("RegionName"),
-                                Country = (string)x.Element("CountryName"),
-                                ZipPostalCode = (string)x.Element("CountryName"),
-                                Position = new LatLong
-                                {
-                                    Lat = (float)x.Element("Latitude"),
-                                    Long = (float)x.Element("Longitude")
-                                }
-                            }).First();
-
-            return location;
+                                Lat = (float?)x.Element("latitude") ?? 0f,
+                                Long = (float?)x.Element("longitude") ?? 0f
+                            }
+                        }).FirstOrDefault();
+            }
+            catch (Exception ex) when (ex is HttpRequestException or System.Xml.XmlException)
+            {
+                _logger.LogWarning(ex, "IP geolocation lookup failed.");
+                return null;
+            }
         }
     }
 
